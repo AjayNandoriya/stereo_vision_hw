@@ -34,6 +34,14 @@ class StereoCam(object):
                 images.append(frame)
         return ret, images
 
+    def calibrate(self):
+        # get image-pairs
+        # get feature pairs
+        
+        retval, cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2, R, T, E, F = cv2.stereoCalibrate(
+            objectPoints, imagePoints1, imagePoints2,
+            cameraMatrix1, distCoeffs1, cameraMatrix2, distCoeffs2,
+            imageSize, flags=cv2.CALIB_FIX_INTRINSIC)
 
 def get_sharpness(img):
     img_gray =cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
