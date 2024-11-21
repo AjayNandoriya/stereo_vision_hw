@@ -81,6 +81,9 @@ def test_():
 
 def initUndistortRectifyMap(mtx, dist, size):
     u,v = np.meshgrid(np.arange(size[1]), np.arange(size[0]))
+    return undistortPoints(u,v, mtx, dist)
+
+def undistortPoints(u,v, mtx, dist):
     fx = mtx[0,0]
     fy = mtx[1,1]
     cx = mtx[0,2]
@@ -112,7 +115,7 @@ def initUndistortRectifyMap(mtx, dist, size):
     # x_3,y_3 = (invR1*X)/(invR3*X), (invR2*X)/(invR3*X)
     x_3,y_3 = x_2, y_2
 
-    
+
     out_x = x_3*fx + cx
     out_y = y_3*fy + cy
     return out_x, out_y
@@ -140,7 +143,72 @@ def test_initUndistortRectifyMap():
     axs[1,2].imshow(mapy-mapy_gt, vmin=-vmax, vmax=vmax)
     plt.show()
 
+def rodrigue(src):
+    src = src.reshape((3,1))
+    theta = np.linalg.norm(src)
+    if abs(theta)<0.00001:
+        src_normed = src*0.0
+    else:    
+        src_normed = src/theta
+    I = np.eye(3)
+    cos_th = np.cos(theta)
+    sin_th = np.sin(theta)
 
+    rx,ry,rz = src_normed[:,0]
+    rrt = np.matmul(src_normed, src_normed.T)
+    Ri = np.array([[0,-rz,-ry],[rz,0,-rx],[-ry,rx,0]], np.float32)
+    R = cos_th*I + (1-cos_th)*rrt + sin_th*Ri
+    return R
+    
+def test_rodrigue():
+    rvec = np.array([1,0,0],dtype=np.float32)
+    R_gt,_ = cv2.Rodrigues(rvec)
+    R = rodrigue(rvec)
+    plt.plot(R_gt.reshape(-1),label='gt')
+    plt.plot(R.reshape(-1),label='out')
+    plt.plot(R.reshape(-1)-R_gt.reshape(-1),label='diff')
+    plt.grid(),plt.legend()
+    plt.show()
+    pass
+
+def projectPoints(points3d, rvec, tvec, mtx, dist):
+    N=points3d.shape[0]
+    points3d_d = []
+
+    tvec = tvec.reshape((1,3))
+    rvec = rvec.reshape((1,3))
+    # R,_ = cv2.Rodrigues(rvec)
+    R = rodrigue(rvec)
+        
+    p3 = points3d
+    points3d_d = np.matmul(p3, R.T) + tvec
+
+    points2d = points3d_d/points3d_d[:,2:3]
+    points2d = np.matmul(points2d,mtx)
+    points2d = points2d[:,:2]
+    points2d = points2d[:,np.newaxis,:]
+    return points2d
+
+def test_projectPoints():
+    N = 100
+    objpoints = np.random.random((N,3))*100
+    rvec = np.array([0.1,0.1,1], dtype=np.float32)
+    tvec = np.array([10,0,0], dtype=np.float32)
+    mtx = np.eye(3)
+    dist = (0,0,0,0,0)
+    imgpoints2_gt, _ = cv2.projectPoints(objpoints, rvec, tvec, mtx, dist)
+
+    imgpoints2 = projectPoints(objpoints, rvec, tvec, mtx, dist)
+
+    diff = imgpoints2 - imgpoints2_gt
+    plt.plot(np.linalg.norm(imgpoints2_gt[:,0,:],axis=1), label='gt')
+    plt.plot(np.linalg.norm(imgpoints2[:,0,:],axis=1), label='out')
+    plt.plot(np.linalg.norm(diff[:,0,:],axis=1), label='diff')
+    plt.grid(), plt.legend()
+    plt.show()
+        
 if __name__ == '__main__':
     # test_()
-    test_initUndistortRectifyMap()
+    # test_initUndistortRectifyMap()
+    test_projectPoints()
+    # test_rodrigue()
