@@ -77,5 +77,70 @@ def test_():
 
     pass
 
+
+
+def initUndistortRectifyMap(mtx, dist, size):
+    u,v = np.meshgrid(np.arange(size[1]), np.arange(size[0]))
+    fx = mtx[0,0]
+    fy = mtx[1,1]
+    cx = mtx[0,2]
+    cy = mtx[1,2]
+    k4,k5,k6 = 0,0,0
+    k1,k2,p1,p2,k3 =dist
+    x = (u-cx)/fx
+    y = (v-cy)/fy
+
+    # R
+    # x_1,y_1 = (R1*X)/(R3*X), (R2*X)/(R3*X)
+    x_1,y_1 = x,y
+
+
+    x2 = x_1**2
+    y2 = y_1**2
+    r2 = x2 + y2
+    
+    r4 = r2*r2
+    r6 = r2*r4
+
+    dist_k_top = 1 + k1*r2 + k2*r4 + k3*r6
+    dist_k_bot = 1 + k4*r2 + k5*r4 + k6*r6
+    dist_k = dist_k_top/dist_k_bot
+    x_2 = x_1*(dist_k) + 2*p1*x_1*y_1 + p2*(r2 + 2*x2)
+    y_2 = y_1*(dist_k) + p1*(r2 + 2*y2) + 2*p2*x_1*y_1
+
+    # R
+    # x_3,y_3 = (invR1*X)/(invR3*X), (invR2*X)/(invR3*X)
+    x_3,y_3 = x_2, y_2
+
+    
+    out_x = x_3*fx + cx
+    out_y = y_3*fy + cy
+    return out_x, out_y
+
+
+def test_initUndistortRectifyMap():
+    h,w = 256,256
+    fx,fy = 10,0.5
+    cx,cy = w//2, h//2
+    k1,k2,k3 = 0.0005,0.0000005,0.0000001
+    p1,p2 = 0.0001,0.0001
+    mtx = np.array([[fx,0,cx],[0,fy,cy],[0,0,1]], dtype=np.float32)
+    dist = (k1,k2,p1,p2,k3)
+    mapx_gt,mapy_gt = cv2.initUndistortRectifyMap(mtx, dist,None, mtx, (w,h), 5)
+
+    mapx, mapy = initUndistortRectifyMap(mtx, dist, (w,h))
+
+    vmax = 0.5
+    fig,axs = plt.subplots(2,3,sharex=True, sharey=True)
+    axs[0,0].imshow(mapx, vmin=0,vmax=w)
+    axs[0,1].imshow(mapx_gt, vmin=0,vmax=w)
+    axs[0,2].imshow(mapx-mapx_gt, vmin=-vmax, vmax=vmax)
+    axs[1,0].imshow(mapy, vmin=0,vmax=h)
+    axs[1,1].imshow(mapy_gt, vmin=0,vmax=h)
+    axs[1,2].imshow(mapy-mapy_gt, vmin=-vmax, vmax=vmax)
+    plt.show()
+
+
 if __name__ == '__main__':
-    test_()
+    # test_()
+    test_initUndistortRectifyMap()
